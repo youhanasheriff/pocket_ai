@@ -21,6 +21,6 @@ dependencies:
       - psutil>=5.9.0
       # TTS (Phase 1.4)
       - pyttsx3>=2.90
-      - pyobjc==9.0.1
+      - pyobjc>=9.0
       # Depth model download utility
       - huggingface_hub

@@ -20,7 +20,7 @@ psutil>=5.9.0
 
 # TTS
 pyttsx3>=2.90
-pyobjc==9.0.1        # needed for pyttsx3 on Apple Silicon
+pyobjc>=9.0          # needed for pyttsx3 on Apple Silicon
 
 # Depth model download utility
 huggingface_hub
