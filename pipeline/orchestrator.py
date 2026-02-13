@@ -47,9 +47,8 @@ class PocketAIPipeline:
             min_confidence=config.instructor.min_confidence_to_instruct,
         )
         self.spatial = SpatialProcessor(config=config.spatial)
-        self.depth = DepthEstimator(
-            model_path=config.depth_model_path or None,
-        )
+        # TODO: re-enable depth estimation once latency is optimized
+        self.depth = DepthEstimator()  # no model path = disabled, uses heuristic fallback
         self.instructor = InstructionEngine(config=config.instructor)
         self.tts = TTSEngine()
 
