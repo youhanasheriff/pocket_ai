@@ -121,6 +121,10 @@ class InstructionEngine:
             Returns ["Path is clear."] when no detections at all.
         """
         if not detections:
+            # Apply cooldown to "Path is clear" so it isn't repeated every frame
+            if self._is_on_cooldown("_path_clear"):
+                return []
+            self._mark_announced("_path_clear")
             return ["Path is clear."]
 
         instructions = []

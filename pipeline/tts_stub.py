@@ -25,10 +25,12 @@ class TTSEngine:
     def __init__(self, backend: str = "pyttsx3"):
         self.backend = backend
         self._engine = None
-        self._queue: Queue = Queue()
+        self._queue: Queue = Queue(maxsize=2)
         self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._speaking = False
+        self._current_text: str = ""  # text currently being spoken
+        self._lock = threading.Lock()
 
         if backend == "pyttsx3":
             self._init_pyttsx3()
@@ -66,17 +68,25 @@ class TTSEngine:
 
             try:
                 self._speaking = True
+                with self._lock:
+                    self._current_text = text
                 self._engine.say(text)
                 self._engine.runAndWait()
             except Exception as e:
                 logger.warning(f"TTS speech failed: {e}")
             finally:
                 self._speaking = False
+                with self._lock:
+                    self._current_text = ""
                 self._queue.task_done()
 
     def speak(self, text: str, priority: str = "normal") -> None:
         """
         Speak or print a text instruction.
+
+        Deduplication: skips if this exact text is currently being spoken
+        or already queued. Keeps queue shallow (clears old items when new
+        ones arrive) so speech stays current rather than lagging behind.
 
         Args:
             text: The instruction text
@@ -91,12 +101,26 @@ class TTSEngine:
         prefix = prefix_map.get(priority, "[INFO]")
         print(f"  {prefix} {text}")
 
-        # Queue for audio if engine is available
-        if self._engine is not None:
-            # For urgent messages, clear any pending non-urgent speech
-            if priority == "urgent":
-                self._clear_queue()
-            self._queue.put(text)
+        if self._engine is None:
+            return
+
+        # Skip if this exact text is already being spoken
+        with self._lock:
+            if self._current_text == text:
+                return
+
+        # For urgent messages, clear stale queue so this plays sooner
+        if priority == "urgent":
+            self._clear_queue()
+
+        # Drop if queue is full (avoid unbounded growth); latest wins
+        if self._queue.full():
+            self._clear_queue()
+
+        try:
+            self._queue.put_nowait(text)
+        except Exception:
+            pass
 
     def _clear_queue(self) -> None:
         """Drain pending items from the queue."""
