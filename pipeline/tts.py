@@ -1,15 +1,20 @@
 """
-Text-to-Speech Engine - pyttsx3 backend with console fallback.
+Text-to-Speech Engine - macOS `say` backend with console fallback.
 
-Uses pyttsx3 for offline spoken output. Speech runs in a background thread
-so the pipeline is never blocked waiting for audio to finish.
+Uses the native macOS `say` command for reliable offline speech.
+Runs each utterance as a subprocess so the pipeline is never blocked.
+
+Design: "latest wins" single-slot. While speech is playing, new calls
+to speak() just update the pending slot. When the current utterance
+finishes, the worker picks up whatever is in the slot (latest only).
 
 The speak() signature is stable across phases - callers never change.
 """
 
 import logging
+import platform
+import subprocess
 import threading
-from queue import Queue, Empty
 
 logger = logging.getLogger(__name__)
 
@@ -18,134 +23,119 @@ class TTSEngine:
     """
     Text-to-Speech interface.
 
-    Tries pyttsx3 for real audio output; falls back to console printing
-    if pyttsx3 fails to initialize (e.g. missing system TTS libs).
+    Uses macOS `say` command for reliable non-blocking speech.
+    Falls back to console-only on non-macOS platforms.
     """
 
-    def __init__(self, backend: str = "pyttsx3"):
-        self.backend = backend
-        self._engine = None
-        self._queue: Queue = Queue(maxsize=2)
+    def __init__(self, backend: str = "auto"):
+        self.backend = "console"
+        self._process: subprocess.Popen | None = None
         self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
-        self._speaking = False
-        self._current_text: str = ""  # text currently being spoken
         self._lock = threading.Lock()
 
-        if backend == "pyttsx3":
-            self._init_pyttsx3()
+        # Single-slot: only the latest instruction matters
+        self._pending_text: str | None = None
+        self._current_text: str = ""
 
-    def _init_pyttsx3(self) -> None:
-        """Try to initialize pyttsx3 engine."""
+        if backend == "auto" or backend == "say":
+            self._init_say()
+
+    def _init_say(self) -> None:
+        """Check if macOS `say` command is available."""
+        if platform.system() != "Darwin":
+            logger.info("Not macOS, TTS falling back to console")
+            return
+
         try:
-            import pyttsx3
+            subprocess.run(
+                ["say", "--version"],
+                capture_output=True,
+                timeout=2,
+            )
+            self.backend = "say"
 
-            self._engine = pyttsx3.init()
-            # Slightly faster speech rate for quick alerts
-            self._engine.setProperty("rate", 175)
-            self.backend = "pyttsx3"
-
-            # Start background worker thread
             self._thread = threading.Thread(target=self._worker, daemon=True)
             self._thread.start()
 
-            logger.info("TTS engine initialized (pyttsx3)")
+            logger.info("TTS engine initialized (macOS say)")
         except Exception as e:
-            logger.warning(f"pyttsx3 init failed, falling back to console: {e}")
-            self._engine = None
-            self.backend = "console"
+            logger.warning(f"macOS say not available: {e}")
 
     def _worker(self) -> None:
-        """Background thread that processes the speech queue."""
+        """Background thread: speaks the latest pending text, one at a time."""
         while not self._stop_event.is_set():
-            try:
-                text = self._queue.get(timeout=0.5)
-            except Empty:
+            with self._lock:
+                text = self._pending_text
+                self._pending_text = None
+
+            if text is None:
+                self._stop_event.wait(timeout=0.15)
                 continue
 
-            if self._engine is None:
-                continue
-
+            self._current_text = text
             try:
-                self._speaking = True
-                with self._lock:
-                    self._current_text = text
-                self._engine.say(text)
-                self._engine.runAndWait()
+                # `say` blocks until speech finishes -- no cutoff
+                self._process = subprocess.Popen(
+                    ["say", "-r", "190", text],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                self._process.wait()
             except Exception as e:
                 logger.warning(f"TTS speech failed: {e}")
             finally:
-                self._speaking = False
-                with self._lock:
-                    self._current_text = ""
-                self._queue.task_done()
+                self._process = None
+                self._current_text = ""
 
     def speak(self, text: str, priority: str = "normal") -> None:
         """
         Speak or print a text instruction.
 
-        Deduplication: skips if this exact text is currently being spoken
-        or already queued. Keeps queue shallow (clears old items when new
-        ones arrive) so speech stays current rather than lagging behind.
+        Console output is always printed. For audio, the text is placed in a
+        single slot. If the engine is busy, only the most recent call survives
+        -- older pending text is silently replaced.
 
         Args:
             text: The instruction text
             priority: "urgent" | "normal" | "info"
         """
-        # Always print to console with color prefix
         prefix_map = {
-            "urgent": "\033[91m[ALERT]\033[0m",   # red
-            "normal": "\033[93m[INFO]\033[0m",     # yellow
-            "info": "\033[94m[NOTE]\033[0m",       # blue
+            "urgent": "\033[91m[ALERT]\033[0m",
+            "normal": "\033[93m[INFO]\033[0m",
+            "info": "\033[94m[NOTE]\033[0m",
         }
         prefix = prefix_map.get(priority, "[INFO]")
         print(f"  {prefix} {text}")
 
-        if self._engine is None:
+        if self.backend != "say":
             return
 
-        # Skip if this exact text is already being spoken
         with self._lock:
+            # Skip if already speaking the exact same text
             if self._current_text == text:
                 return
-
-        # For urgent messages, clear stale queue so this plays sooner
-        if priority == "urgent":
-            self._clear_queue()
-
-        # Drop if queue is full (avoid unbounded growth); latest wins
-        if self._queue.full():
-            self._clear_queue()
-
-        try:
-            self._queue.put_nowait(text)
-        except Exception:
-            pass
-
-    def _clear_queue(self) -> None:
-        """Drain pending items from the queue."""
-        while not self._queue.empty():
-            try:
-                self._queue.get_nowait()
-                self._queue.task_done()
-            except Empty:
-                break
+            # Overwrite any stale pending text -- latest wins
+            self._pending_text = text
 
     def stop(self) -> None:
-        """Interrupt current speech and clear queue."""
-        self._clear_queue()
-        if self._engine is not None:
+        """Kill current speech immediately."""
+        with self._lock:
+            self._pending_text = None
+        proc = self._process
+        if proc is not None:
             try:
-                self._engine.stop()
+                proc.kill()
             except Exception:
                 pass
 
     def is_speaking(self) -> bool:
-        """True if audio is currently playing."""
-        return self._speaking or not self._queue.empty()
+        """True if audio is currently playing or pending."""
+        return self._process is not None or self._pending_text is not None
 
     def shutdown(self) -> None:
-        """Clean shutdown of the background thread."""
+        """Clean shutdown."""
         self._stop_event.set()
+        self.stop()
         if self._thread is not None:
             self._thread.join(timeout=2.0)
