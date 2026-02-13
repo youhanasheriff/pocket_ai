@@ -1,0 +1,41 @@
+{
+  "vision": {
+    "obstacle_desktop": {
+      "file": "vision/obstacle_desktop.pt",
+      "format": "pytorch",
+      "precision": "fp32",
+      "img_size": 640,
+      "classes": 8,
+      "size_mb": 5.2,
+      "mAP50": 0.747,
+      "profiles": ["desktop"],
+      "description": "YOLO11n trained on indoor obstacle dataset, 150 epochs"
+    },
+    "obstacle_desktop_onnx": {
+      "file": "vision/obstacle_desktop.onnx",
+      "format": "onnx",
+      "precision": "fp16",
+      "img_size": 640,
+      "classes": 8,
+      "size_mb": null,
+      "profiles": ["desktop"],
+      "description": "FP16 ONNX export - run tools/export_model.py --profile desktop to generate"
+    },
+    "obstacle_edge": {
+      "file": "vision/obstacle_edge.onnx",
+      "format": "onnx",
+      "precision": "int8",
+      "img_size": 320,
+      "classes": 8,
+      "size_mb": null,
+      "profiles": ["edge"],
+      "description": "INT8 ONNX export for edge devices - run tools/export_model.py --profile edge to generate"
+    }
+  },
+  "depth": {
+    "note": "Placeholder - MiDaS or Depth-Anything-V2-Small planned for Phase 1.5"
+  },
+  "tts": {
+    "note": "Placeholder - Kokoro-82M or piper-TTS planned for Phase 1.4"
+  }
+}

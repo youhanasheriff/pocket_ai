@@ -1,0 +1,24 @@
+# Pocket AI Guardian - Dependencies
+
+# Core vision inference
+ultralytics>=8.3.0
+opencv-python>=4.8.0
+numpy>=1.23.0
+
+# ONNX runtime (for exported edge/desktop models)
+onnx>=1.14.0
+onnxruntime>=1.16.0
+
+# Image processing
+Pillow>=9.4.0
+
+# Configuration
+PyYAML>=6.0
+
+# Hardware detection (optional, graceful fallback)
+psutil>=5.9.0
+
+# TTS - Phase 1.4 (uncomment when ready)
+# pyttsx3>=2.90
+
+# Depth - Phase 1.5 (onnxruntime already covers ONNX depth models)
