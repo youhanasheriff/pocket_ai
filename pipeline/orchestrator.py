@@ -47,9 +47,11 @@ class PocketAIPipeline:
             min_confidence=config.instructor.min_confidence_to_instruct,
         )
         self.spatial = SpatialProcessor(config=config.spatial)
-        self.depth = DepthEstimator()  # Phase 1: stub
+        self.depth = DepthEstimator(
+            model_path=config.depth_model_path or None,
+        )
         self.instructor = InstructionEngine(config=config.instructor)
-        self.tts = TTSEngine()  # Phase 1: console output
+        self.tts = TTSEngine()
 
         # Pipeline-level performance tracking
         self.pipeline_times: List[float] = []

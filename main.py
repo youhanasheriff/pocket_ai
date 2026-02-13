@@ -140,6 +140,12 @@ def build_config(args) -> tuple:
     # Determine device
     device = args.device or detect_device()
 
+    # Resolve depth model path (auto-detect if present)
+    depth_model_path = ""
+    depth_candidate = PROJECT_ROOT / "models" / "depth" / "depth_small_int8.onnx"
+    if depth_candidate.exists():
+        depth_model_path = str(depth_candidate)
+
     # Build config
     config = PipelineConfig(
         model=ModelConfig(
@@ -154,6 +160,7 @@ def build_config(args) -> tuple:
         ),
         show_preview=args.show,
         save_logs=args.save_logs,
+        depth_model_path=depth_model_path,
     )
 
     return config, model_path
@@ -185,6 +192,7 @@ def main():
     print(f"  Img size: {config.model.img_size}px")
     print(f"  Conf:     {config.model.conf_threshold}")
     print(f"  Cooldown: {config.instructor.cooldown_seconds}s")
+    print(f"  Depth:    {'enabled' if config.depth_model_path else 'disabled (heuristic)'}")
     print("=" * 55)
 
     # Initialize pipeline

@@ -33,9 +33,20 @@
     }
   },
   "depth": {
-    "note": "Placeholder - MiDaS or Depth-Anything-V2-Small planned for Phase 1.5"
+    "depth_anything_v2_small_int8": {
+      "file": "depth/depth_small_int8.onnx",
+      "format": "onnx",
+      "precision": "int8",
+      "input_size": 518,
+      "size_mb": 26,
+      "source": "https://huggingface.co/onnx-community/depth-anything-v2-small",
+      "description": "Depth-Anything-V2-Small INT8 quantized, monocular relative depth"
+    }
   },
   "tts": {
-    "note": "Placeholder - Kokoro-82M or piper-TTS planned for Phase 1.4"
+    "pyttsx3": {
+      "type": "system",
+      "description": "Offline TTS via pyttsx3, uses macOS NSSpeechSynthesizer on Apple Silicon"
+    }
   }
 }

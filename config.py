@@ -96,3 +96,4 @@ class PipelineConfig:
     save_logs: bool = False
     log_dir: str = "logs/"
     target_latency_ms: int = 200   # 200 desktop / 300 edge
+    depth_model_path: str = ""     # path to ONNX depth model (empty = disabled)
