@@ -18,9 +18,9 @@ from config import PipelineConfig
 from pipeline.detector import IndoorObstacleDetector
 from pipeline.validator import DetectionValidator
 from pipeline.spatial import SpatialProcessor
-from pipeline.depth_stub import DepthEstimator
+from pipeline.depth import DepthEstimator
 from pipeline.instructor import InstructionEngine
-from pipeline.tts_stub import TTSEngine
+from pipeline.tts import TTSEngine
 
 logger = logging.getLogger(__name__)
 
