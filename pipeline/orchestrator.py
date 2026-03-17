@@ -47,8 +47,9 @@ class PocketAIPipeline:
             min_confidence=config.instructor.min_confidence_to_instruct,
         )
         self.spatial = SpatialProcessor(config=config.spatial)
-        # TODO: re-enable depth estimation once latency is optimized
-        self.depth = DepthEstimator()  # no model path = disabled, uses heuristic fallback
+        self.depth = DepthEstimator(
+            model_path=config.depth_model_path if config.depth_model_path else None
+        )
         self.instructor = InstructionEngine(config=config.instructor)
         self.tts = TTSEngine()
 
@@ -56,9 +57,13 @@ class PocketAIPipeline:
         self.pipeline_times: List[float] = []
         self.max_history = 100
 
-    def process_frame(self, frame: np.ndarray) -> Dict:
+    def process_frame(self, frame: np.ndarray, return_image: bool = False) -> Dict:
         """
         Process a single frame through the full pipeline.
+
+        Args:
+            frame: BGR image from OpenCV
+            return_image: If True, include annotated image in output
 
         Returns:
             Pipeline result dict with detections, instructions, and timing.
@@ -66,7 +71,7 @@ class PocketAIPipeline:
         pipeline_start = time.perf_counter()
 
         # Step 1: Detect objects
-        raw = self.detector.detect(frame)
+        raw = self.detector.detect(frame, return_image=return_image)
 
         # Step 2: Validate (filter noise, track history)
         validated = self.validator.validate(raw)
@@ -101,7 +106,7 @@ class PocketAIPipeline:
         if len(self.pipeline_times) > self.max_history:
             self.pipeline_times.pop(0)
 
-        return {
+        result = {
             "frame_id": raw["frame_id"],
             "timestamp": raw["timestamp"],
             "inference_ms": raw["inference_ms"],
@@ -110,6 +115,11 @@ class PocketAIPipeline:
             "detections_validated": enriched["summary"]["total_objects"],
             "instructions": instructions,
         }
+
+        if return_image and "annotated_image" in raw:
+            result["annotated_image"] = raw["annotated_image"]
+
+        return result
 
     def run_stream(
         self,
@@ -157,22 +167,20 @@ class PocketAIPipeline:
                     logger.info("End of stream")
                     break
 
-                result = self.process_frame(frame)
+                result = self.process_frame(frame, return_image=show)
                 frame_count += 1
 
-                # Save log
+                # Save log (exclude annotated image from JSONL)
                 if log_file:
-                    log_file.write(json.dumps(result) + "\n")
+                    log_entry = {k: v for k, v in result.items() if k != "annotated_image"}
+                    log_file.write(json.dumps(log_entry) + "\n")
 
-                # Show preview
-                if show:
-                    # Run detection again with image for display
-                    display_result = self.detector.detect(frame, return_image=True)
-                    if "annotated_image" in display_result:
-                        cv2.imshow("Pocket AI", display_result["annotated_image"])
-                        if cv2.waitKey(1) & 0xFF == ord("q"):
-                            logger.info("User quit")
-                            break
+                # Show preview using image from the same detection pass
+                if show and "annotated_image" in result:
+                    cv2.imshow("Pocket AI", result["annotated_image"])
+                    if cv2.waitKey(1) & 0xFF == ord("q"):
+                        logger.info("User quit")
+                        break
 
                 # Frame limit check
                 if max_frames and frame_count >= max_frames:
