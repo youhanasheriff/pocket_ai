@@ -1,3 +1,6 @@
+[![CI](https://github.com/youhanasheriff/pocket_ai/actions/workflows/ci.yml/badge.svg)](https://github.com/youhanasheriff/pocket_ai/actions/workflows/ci.yml)
+![Python 3.11](https://img.shields.io/badge/python-3.11-blue)
+
 # Pocket AI Guardian 👁️🔊
 
 **Offline, real-time obstacle-detection assistant that turns a camera feed into spoken navigation guidance — built to run on the edge.**
@@ -62,6 +65,7 @@ python main.py --save-logs          # save JSONL detection logs to logs/
 ```bash
 pytest tests/
 ```
+The tests need no camera or model weights; CI installs only [`requirements-ci.txt`](requirements-ci.txt). See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and PR guidelines, and [SECURITY.md](SECURITY.md) for reporting vulnerabilities.
 
 ## Docs
 See [`docs/`](docs/) for the architecture overview, deployment guide, technical execution plan, and training report.

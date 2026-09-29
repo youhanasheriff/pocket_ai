@@ -1,0 +1,7 @@
+# Minimal dependencies for CI (tests and lint only).
+# The unit tests exercise the pure-Python pipeline stages and do not need
+# model weights, a camera, ultralytics, onnxruntime or TTS libraries.
+numpy>=1.23.0
+opencv-python-headless>=4.8.0
+pytest>=7.0
+ruff
