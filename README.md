@@ -1,5 +1,6 @@
 [![CI](https://github.com/youhanasheriff/pocket_ai/actions/workflows/ci.yml/badge.svg)](https://github.com/youhanasheriff/pocket_ai/actions/workflows/ci.yml)
 ![Python 3.11](https://img.shields.io/badge/python-3.11-blue)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 
 # Pocket AI Guardian 👁️🔊
 
@@ -69,6 +70,9 @@ The tests need no camera or model weights; CI installs only [`requirements-ci.tx
 
 ## Docs
 See [`docs/`](docs/) for the architecture overview, deployment guide, technical execution plan, and training report.
+
+## License
+[AGPL-3.0](LICENSE). This project builds on [Ultralytics YOLO11](https://github.com/ultralytics/ultralytics) and bundles YOLO11-trained weights, both of which are AGPL-3.0.
 
 ---
 *Part of an edge-AI research line exploring assistive, real-time AI on resource-constrained hardware. See also [models-edge-devices](https://github.com/youhanasheriff/models-edge-devices).*
